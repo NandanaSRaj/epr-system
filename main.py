@@ -1,12 +1,15 @@
-from fastapi import FastAPI
+# -------------------- IMPORTS --------------------
+from fastapi import FastAPI, Form
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import sqlite3
 from datetime import datetime
 import random
 
+# -------------------- APP --------------------
 app = FastAPI(title="Rural EPR System")
 
-# ---------------- DATABASE ---------------- #
+# -------------------- DATABASE --------------------
 conn = sqlite3.connect("epr.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -28,7 +31,7 @@ CREATE TABLE IF NOT EXISTS patients (
 """)
 conn.commit()
 
-# ---------------- MODELS ---------------- #
+# -------------------- MODEL --------------------
 class PatientData(BaseModel):
     name: str
     age: int
@@ -39,41 +42,187 @@ class PatientData(BaseModel):
     bp_dia: float
     weight: float
 
-# ---------------- UPID GENERATION ---------------- #
+# -------------------- HELPERS --------------------
 def generate_upid():
-    date = datetime.now().strftime("%Y%m%d")
-    rand = random.randint(1000, 9999)
-    return f"SKD-{date}-{rand}"
+    return f"SKD-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000,9999)}"
 
-# ---------------- RISK CLASSIFICATION ---------------- #
-def classify_risk(fbs, rbs):
-    if fbs >= 126 or rbs >= 200:
-        return "Diabetic"
-    elif 100 <= fbs < 126 or 140 <= rbs < 200:
-        return "Pre-diabetic"
-    else:
-        return "Normal"
+def calculate_risk(data: PatientData):
+    score = 0
 
-# ---------------- RISK SCORE (SIMULATED ML) ---------------- #
-def risk_score(age, bp_sys, weight):
-    score = (age * 0.01) + (bp_sys * 0.005) + (weight * 0.002)
-    return min(score, 1.0)
+    if data.fbs > 110:
+        score += 0.3
+    if data.rbs > 160:
+        score += 0.3
+    if data.bp_sys > 130 or data.bp_dia > 85:
+        score += 0.2
+    if data.weight > 70:
+        score += 0.2
 
-def risk_level(score):
     if score < 0.3:
-        return "Low"
+        risk = "Low"
     elif score < 0.7:
-        return "Medium"
+        risk = "Pre-diabetic"
     else:
-        return "High"
+        risk = "High"
 
-# ---------------- REGISTER PATIENT ---------------- #
+    return risk, round(score, 2)
+
+# -------------------- BEAUTIFUL HOME PAGE --------------------
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+    <head>
+        <title>Rural EPR System</title>
+    </head>
+
+    <body style="
+        font-family: Arial;
+        background: linear-gradient(to right, #4facfe, #00f2fe);
+        margin:0;
+        padding:0;
+    ">
+
+        <div style="
+            width:400px;
+            margin:50px auto;
+            background:white;
+            padding:25px;
+            border-radius:15px;
+            box-shadow:0px 5px 20px rgba(0,0,0,0.2);
+        ">
+
+        <h2 style="text-align:center; color:#2c3e50;">
+            🩺 Rural EPR System
+        </h2>
+
+        <p style="text-align:center; color:gray;">
+            Patient Registration
+        </p>
+
+        <form action="/register_form" method="post">
+
+            <label>👤 Name</label><br>
+            <input type="text" name="name" style="width:100%;padding:8px;"><br><br>
+
+            <label>🎂 Age</label><br>
+            <input type="number" name="age" style="width:100%;padding:8px;"><br><br>
+
+            <label>⚧ Gender</label><br>
+            <input type="text" name="gender" style="width:100%;padding:8px;"><br><br>
+
+            <label>🧪 FBS</label><br>
+            <input type="number" name="fbs" style="width:100%;padding:8px;"><br><br>
+
+            <label>🧪 RBS</label><br>
+            <input type="number" name="rbs" style="width:100%;padding:8px;"><br><br>
+
+            <label>💓 BP Sys</label><br>
+            <input type="number" name="bp_sys" style="width:100%;padding:8px;"><br><br>
+
+            <label>💓 BP Dia</label><br>
+            <input type="number" name="bp_dia" style="width:100%;padding:8px;"><br><br>
+
+            <label>⚖ Weight</label><br>
+            <input type="number" name="weight" style="width:100%;padding:8px;"><br><br>
+
+            <button style="
+                width:100%;
+                padding:12px;
+                background:#27ae60;
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-size:16px;
+                cursor:pointer;
+            ">
+                ✅ Register Patient
+            </button>
+
+        </form>
+
+        </div>
+
+        <p style="text-align:center; color:white;">
+            Built for Rural Healthcare 💙
+        </p>
+
+    </body>
+    </html>
+    """
+
+# -------------------- FORM SUBMIT --------------------
+@app.post("/register_form", response_class=HTMLResponse)
+def register_form(
+    name: str = Form(...),
+    age: int = Form(...),
+    gender: str = Form(...),
+    fbs: float = Form(...),
+    rbs: float = Form(...),
+    bp_sys: float = Form(...),
+    bp_dia: float = Form(...),
+    weight: float = Form(...)
+):
+    data = PatientData(
+        name=name,
+        age=age,
+        gender=gender,
+        fbs=fbs,
+        rbs=rbs,
+        bp_sys=bp_sys,
+        bp_dia=bp_dia,
+        weight=weight
+    )
+
+    result = register(data)
+
+    return f"""
+    <html>
+    <body style="
+        font-family: Arial;
+        background: linear-gradient(to right, #43e97b, #38f9d7);
+        text-align:center;
+        padding-top:80px;
+    ">
+
+    <div style="
+        background:white;
+        width:350px;
+        margin:auto;
+        padding:20px;
+        border-radius:15px;
+        box-shadow:0px 5px 20px rgba(0,0,0,0.2);
+    ">
+
+    <h2>✅ Patient Registered</h2>
+
+    <p><b>🆔 UPID:</b> {result['UPID']}</p>
+    <p><b>⚠ Risk:</b> {result['risk_category']}</p>
+    <p><b>📊 Score:</b> {result['risk_score']}</p>
+
+    <br>
+
+    <a href="/" style="
+        text-decoration:none;
+        background:#3498db;
+        color:white;
+        padding:10px 15px;
+        border-radius:8px;
+    ">
+        ⬅ Register Another
+    </a>
+
+    </div>
+
+    </body>
+    </html>
+    """
+
+# -------------------- API --------------------
 @app.post("/register")
-def register_patient(data: PatientData):
+def register(data: PatientData):
     upid = generate_upid()
-    risk = classify_risk(data.fbs, data.rbs)
-    score = risk_score(data.age, data.bp_sys, data.weight)
-    level = risk_level(score)
+    risk, score = calculate_risk(data)
 
     cursor.execute("""
     INSERT INTO patients VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -96,64 +245,29 @@ def register_patient(data: PatientData):
     return {
         "UPID": upid,
         "risk_category": risk,
-        "risk_score": round(score, 2),
-        "risk_level": level,
+        "risk_score": score,
         "message": "Patient registered successfully"
     }
 
-# ---------------- GET PATIENT ---------------- #
+# -------------------- GET PATIENT --------------------
 @app.get("/patient/{upid}")
 def get_patient(upid: str):
     cursor.execute("SELECT * FROM patients WHERE upid=?", (upid,))
-    result = cursor.fetchone()
+    row = cursor.fetchone()
 
-    if not result:
+    if not row:
         return {"error": "Patient not found"}
 
     return {
-        "UPID": result[0],
-        "name": result[1],
-        "age": result[2],
-        "gender": result[3],
-        "FBS": result[4],
-        "RBS": result[5],
-        "BP": f"{result[6]}/{result[7]}",
-        "weight": result[8],
-        "risk": result[9],
-        "score": result[10],
-        "timestamp": result[11]
+        "UPID": row[0],
+        "name": row[1],
+        "age": row[2],
+        "gender": row[3],
+        "FBS": row[4],
+        "RBS": row[5],
+        "BP": f"{row[6]}/{row[7]}",
+        "weight": row[8],
+        "risk": row[9],
+        "score": row[10],
+        "timestamp": row[11]
     }
-
-# ---------------- REFERRAL ---------------- #
-@app.get("/referral/{upid}")
-def generate_referral(upid: str):
-    cursor.execute("SELECT * FROM patients WHERE upid=?", (upid,))
-    result = cursor.fetchone()
-
-    if not result:
-        return {"error": "Patient not found"}
-
-    risk = result[9]
-
-    if risk == "Diabetic":
-        priority = "Immediate"
-    elif risk == "Pre-diabetic":
-        priority = "Moderate"
-    else:
-        priority = "Routine"
-
-    return {
-        "UPID": upid,
-        "risk": risk,
-        "priority": priority,
-        "referral": "Visit nearest PHC for further evaluation"
-    }
-
-# ---------------- DASHBOARD ---------------- #
-@app.get("/dashboard")
-def dashboard():
-    cursor.execute("SELECT risk, COUNT(*) FROM patients GROUP BY risk")
-    data = cursor.fetchall()
-
-    return {risk: count for risk, count in data}
-
