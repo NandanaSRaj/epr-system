@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>RuralCare AI</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: linear-gradient(to right, #00c6ff, #0072ff);
+    color: white;
+    text-align: center;
+}
+
+.container {
+    background: white;
+    color: black;
+    padding: 30px;
+    margin: 50px auto;
+    width: 400px;
+    border-radius: 15px;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 8px;
+}
+
+button {
+    padding: 10px 20px;
+    background: green;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    background: #d4edda;
+    border-radius: 10px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>🩺 RuralCare AI</h1>
+
+<div class="container">
+
+<form method="post" action="/register">
+<input name="name" placeholder="Name" required><br>
+<input name="age" placeholder="Age" required><br>
+<input name="gender" placeholder="Gender" required><br>
+<input name="fbs" placeholder="FBS" required><br>
+<input name="rbs" placeholder="RBS" required><br>
+<input name="bp_sys" placeholder="BP Sys" required><br>
+<input name="bp_dia" placeholder="BP Dia" required><br>
+<input name="weight" placeholder="Weight" required><br>
+
+<button type="submit">Register Patient</button>
+</form>
+
+{% if result %}
+<div class="result">
+<h2>✅ Patient Registered</h2>
+<p><b>UPID:</b> {{result.upid}}</p>
+<p><b>Risk:</b> {{result.risk}}</p>
+<p><b>Score:</b> {{result.score}}</p>
+
+<h3>🥗 Diet Plan</h3>
+<ul>
+{% for d in result.diet %}
+<li>{{d}}</li>
+{% endfor %}
+</ul>
+</div>
+{% endif %}
+
+</div>
+
+</body>
+</html>
